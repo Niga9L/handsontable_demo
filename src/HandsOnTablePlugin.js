@@ -2,14 +2,29 @@ import React, {useRef, useState} from 'react'
 import { HotTable } from '@handsontable/react';
 // import Handsontable from "handsontable";
 
-const mok =  {
-  watch: ['2', '3', '4'],
-  target: '5',
-  formula: '=[3]*[4]/[2]'
-}
+const mok = [
+  {
+    watch: ['2', '3', '4'],
+    target: '5',
+    formula: '=|3|*|4|/|2',
+    params: {
+      mok1: 1,
+      mok2: 100
+    }
+  },
+  {
+    watch: ['2', '6', '7'],
+    target: '8',
+    formula: '=|6|*|7|/|2',
+    params: {
+      mok1: 1,
+      mok2: 100
+    }
+  }
+]
 
 const data = [
-  {1: 'Январь 2021', 2: '100', '5': '', mok1: 1},
+  {1: 'Январь 2021', 2: '100', '5': ''},
   {1: 'Февраль 2021'},
   {1: 'Март 2021'},
   {1: 'Апрель 2021'},
@@ -129,37 +144,73 @@ export const HandsOnTablePlugin = () => {
       // console.log(idxRow, idxCell, prev, value)
       // console.log(idxCell)
       // console.log(props.mok.watch.find(node => node === idxCell))
-      if (props.mok.watch.find(node => node === idxCell)) {
-        let rowData = handOnTableRef.current.hotInstance.getSourceDataAtRow(idxRow)
-        console.log(rowData)
-        // console.log(handOnTableRef.current.hotInstance.getSourceData())
-        const formula = (+rowData[3] * +rowData[4]) / +rowData[2]
-        if (!isNaN(formula)) {
-          rowData[props.mok.target] = formula
-          // handOnTableRef.current.hotInstance.setDataAtRowProp(idxRow, '', rowData)
-          let newData = [...handOnTableRef.current.hotInstance.getSourceData()]
-          newData[idxRow] = rowData
-          // console.log(newData)
-          setSettingsState({
-            ...settings,
-            data: newData
+      props.mok.forEach(nodeWatcher => {
+        if (nodeWatcher.watch.find(node => node === idxCell)) {
+          let rowData = handOnTableRef.current.hotInstance.getSourceDataAtRow(idxRow)
+          // console.log(rowData)
+          // console.log(handOnTableRef.current.hotInstance.getSourceData())
+          const formula = nodeWatcher.formula.split('|')
+          // console.log(formula)
+          let value = rowData[formula[1]]
+
+          formula.forEach((node, idx) => {
+            if (node === '*') {
+              if (+formula[idx + 1]) {
+                value = value * rowData[formula[idx + 1]]
+              } else {
+                value = value * nodeWatcher.params[formula[idx + 1]]
+              }
+            }
+            if (node === '/') {
+              if (+formula[idx + 1]) {
+                value = value / rowData[formula[idx + 1]]
+              } else {
+                value = value / nodeWatcher.params[formula[idx + 1]]
+              }
+            }
+            if (node === '-') {
+              if (+formula[idx + 1]) {
+                value = value - rowData[formula[idx + 1]]
+              } else {
+                value = value - nodeWatcher.params[formula[idx + 1]]
+              }
+            }
+            if (node === '+') {
+              if (+formula[idx + 1]) {
+                value = value + rowData[formula[idx + 1]]
+              } else {
+                value = value + nodeWatcher.params[formula[idx + 1]]
+              }
+            }
           })
-        } else  {
-          // rowData[props.mok.target] = ''
-          // let newData = [...handOnTableRef.current.hotInstance.getSourceData()]
-          // newData[idxRow] = {...rowData, [props.mok.target]: null}
-          // // console.log(newData)
-          // setSettingsState({
-          //   ...settings,
-          //   data: newData
-          // })
+
+          // const result = (+rowData[3] * +rowData[4]) / +rowData[2]
+          if (!isNaN(value)) {
+            rowData[nodeWatcher.target] = value
+            // handOnTableRef.current.hotInstance.setDataAtRowProp(idxRow, '', rowData)
+            let newData = [...handOnTableRef.current.hotInstance.getSourceData()]
+            newData[idxRow] = rowData
+            // console.log(newData)
+            setSettingsState({
+              ...settings,
+              data: newData
+            })
+          } else  {
+            // rowData[props.mok.target] = ''
+            // let newData = [...handOnTableRef.current.hotInstance.getSourceData()]
+            // newData[idxRow] = {...rowData, [props.mok.target]: null}
+            // // console.log(newData)
+            // setSettingsState({
+            //   ...settings,
+            //   data: newData
+            // })
+          }
         }
-      }
+      })
     }
   }
 
   const afterChangeSetting = (changes) => {
-
     if (mok) {
       return afterChange({mok, changes})
     }
@@ -171,7 +222,7 @@ export const HandsOnTablePlugin = () => {
       <HotTable
         settings={settingsState}
         ref={handOnTableRef}
-        afterChange={changes => afterChangeSetting(changes)}
+        afterChange={(changes, source) => afterChangeSetting(changes, source)}
       />
     </div>
   )
